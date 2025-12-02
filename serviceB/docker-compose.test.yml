@@ -1,0 +1,42 @@
+services:
+  test:
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+    container_name: weather-api-tests
+    volumes:
+      # Montar código fonte para desenvolvimento (opcional)
+      - .:/app
+    environment:
+      - GO_ENV=test
+      - CGO_ENABLED=0
+    command: go test -v -cover ./...
+    
+  # Serviço para executar testes com relatório de cobertura detalhado
+  test-coverage:
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+    container_name: weather-api-coverage
+    volumes:
+      - .:/app
+      - ./coverage:/coverage
+    environment:
+      - GO_ENV=test
+      - CGO_ENABLED=0
+    command: sh -c "go test -v -coverprofile=/coverage/coverage.out ./... && go tool cover -html=/coverage/coverage.out -o /coverage/coverage.html"
+    
+  # Serviço para executar testes específicos
+  test-watch:
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+    container_name: weather-api-test-watch
+    volumes:
+      - .:/app
+    environment:
+      - GO_ENV=test
+      - CGO_ENABLED=0
+    stdin_open: true
+    tty: true
+    command: sh

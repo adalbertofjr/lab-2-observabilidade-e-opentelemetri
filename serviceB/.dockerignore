@@ -1,0 +1,40 @@
+# Git
+.git
+.gitignore
+.github
+
+# Docker
+Dockerfile.test
+docker-compose*
+
+# Arquivos de desenvolvimento
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# Arquivos de teste e cobertura
+coverage/
+*.out
+*.test
+*_test.go
+
+# Documentação (não necessária no container)
+README.md
+DOCKER_TESTS.md
+QUICK_START_DOCKER.md
+docs/
+
+# Scripts e ferramentas de desenvolvimento
+Makefile
+test-docker.sh
+
+# Arquivos temporários
+tmp/
+temp/
+.DS_Store
+
+# Arquivos de ambiente local
+.env
+cmd/server/.env

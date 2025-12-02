@@ -1,0 +1,19 @@
+### Test cep valid format
+Get /?cep=01153000 HTTP/1.1
+Host: localhost:8000
+
+### Test cep valid format
+Get /?cep=01153-000 HTTP/1.1
+Host: localhost:8000
+
+### Test with empty CEP
+Get /?cep= HTTP/1.1
+Host: localhost:8000
+
+### Test cep invalid format
+Get /?cep=0000000 HTTP/1.1
+Host: localhost:8000
+
+### Test cep not found
+Get /?cep=12345678 HTTP/1.1
+Host: localhost:8000
