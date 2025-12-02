@@ -1,4 +1,4 @@
-name: Go Weather Cloud Run - Tests
+name: Go Observability & OpenTelemetry
 on: [push, pull_request]
 jobs:
   test:
