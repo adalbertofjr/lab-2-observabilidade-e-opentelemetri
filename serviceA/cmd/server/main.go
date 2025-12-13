@@ -14,7 +14,7 @@ func main() {
 }
 
 func startServer() {
-	cepHandler := api.NewCEPHandler().CEPValidate
+	cepHandler := api.NewCEPHandler().GetCurrentWeather
 	router := chi.NewRouter()
 	router.Use(middleware.Logger)
 	router.HandleFunc("/", cepHandler)
