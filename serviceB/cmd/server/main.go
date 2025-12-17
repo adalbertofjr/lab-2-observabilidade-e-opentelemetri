@@ -31,7 +31,12 @@ func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer cancel()
 
-	shutdown, err := initProvider()
+	configs, err := configs.LoadConfig(".")
+	if err != nil {
+		panic(err)
+	}
+
+	shutdown, err := initProvider(configs.OtelEndpoint)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -43,10 +48,6 @@ func main() {
 
 	tracer := otel.Tracer("serviceB-tracer")
 
-	configs, err := configs.LoadConfig(".")
-	if err != nil {
-		panic(err)
-	}
 	startServer(configs, tracer)
 }
 
@@ -62,7 +63,7 @@ func startServer(configs *configs.Conf, tracer trace.Tracer) {
 	webserver.Start()
 }
 
-func initProvider() (func(context.Context) error, error) {
+func initProvider(otelEndpoint string) (func(context.Context) error, error) {
 	ctx := context.Background()
 
 	res, err := resource.New(ctx,
@@ -78,8 +79,12 @@ func initProvider() (func(context.Context) error, error) {
 	ctx, cancel := context.WithTimeout(ctx, time.Second)
 	defer cancel()
 
+	if otelEndpoint == "" {
+		otelEndpoint = "localhost:4317"
+	}
+
 	conn, err := grpc.NewClient(
-		"localhost:4317",
+		otelEndpoint,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 	)
 

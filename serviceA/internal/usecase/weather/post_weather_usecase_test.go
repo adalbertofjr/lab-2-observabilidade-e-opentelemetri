@@ -78,7 +78,7 @@ func TestWeatherUseCase_GetCurrentWeather_GatewayError(t *testing.T) {
 	cep := "87654321"
 	gatewayError := errors.New("gateway failed")
 
-	mockGateway.On("GetCurrentWeather", mock.Anything, "87654321").Return(nil, gatewayError)
+	mockGateway.On("GetCurrentWeather", "87654321").Return(nil, gatewayError)
 
 	// Act
 	weather, err := usecase.GetCurrentWeather(ctx, cep)

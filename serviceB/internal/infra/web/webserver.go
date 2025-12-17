@@ -36,7 +36,7 @@ func (s *WebServer) Start() {
 	}
 	addr := s.WebServerPort
 	if addr == "" {
-		addr = ":8080"
+		addr = ":8000"
 	}
 	fmt.Println("Starting web server on port:", addr)
 	err := http.ListenAndServe(addr, s.Router)

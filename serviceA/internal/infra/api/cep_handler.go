@@ -54,7 +54,7 @@ func (c *WeatherHandler) GetCurrentWeather(w http.ResponseWriter, r *http.Reques
 
 	currentWeather, err := c.usecase.GetCurrentWeather(ctx, cep.CEP)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		http.Error(w, err.Error(), http.StatusUnprocessableEntity)
 		return
 	}
 

@@ -33,7 +33,7 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - WEATHERAPI_KEY=${WEATHERAPI_KEY:-abcf6848f7d2401192e01746252611}
+      - WEATHERAPI_KEY=${WEATHERAPI_KEY:-your_api_key_here}
       - WEB_SERVER_PORT=:8000
       - OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT:-otel-collector:4317}
     depends_on:
