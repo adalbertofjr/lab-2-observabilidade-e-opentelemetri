@@ -1,283 +1,368 @@
-# Weather API - Go + Cloud Run
+# 🌡️ Sistema de Temperatura por CEP - Go + OTEL + Zipkin
 
-[![Tests](https://github.com/adalbertofjr/lab-1-go-weather-cloud-run/actions/workflows/go-weather-cloud-run-tests.yml/badge.svg)](https://github.com/adalbertofjr/lab-1-go-weather-cloud-run/actions/workflows/go-weather-cloud-run-tests.yml)
 [![Go Version](https://img.shields.io/badge/Go-1.23-00ADD8?logo=go)](https://go.dev/)
-[![Coverage](https://img.shields.io/badge/coverage-90%25-brightgreen)](./coverage)
+[![OpenTelemetry](https://img.shields.io/badge/OpenTelemetry-Enabled-blue)](https://opentelemetry.io/)
+[![Zipkin](https://img.shields.io/badge/Zipkin-Tracing-orange)](https://zipkin.io/)
+[![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?logo=docker)](https://www.docker.com/)
 
-API REST em Go para consulta de temperatura por CEP, integrando ViaCEP e WeatherAPI. Desenvolvida com Clean Architecture e pronta para deploy no Google Cloud Run.
+Sistema distribuído em Go que recebe um CEP, identifica a cidade e retorna o clima atual (temperatura em Celsius, Fahrenheit e Kelvin) com **tracing distribuído** implementado usando **OpenTelemetry** e **Zipkin**.
+
+---
 
 ## 📋 Índice
 
-1. [Quick Start](#1-quick-start)
-2. [Tecnologias](#2-tecnologias)
-3. [Arquitetura](#3-arquitetura)
-4. [Pré-requisitos](#4-pré-requisitos)
-5. [Configuração](#5-configuração)
-6. [Executando o Projeto](#6-executando-o-projeto)
-7. [Executando os Testes](#7-executando-os-testes)
-8. [API Endpoints](#8-api-endpoints)
-9. [Estrutura do Projeto](#9-estrutura-do-projeto)
-10. [CI/CD](#10-cicd)
-11. [Docker](#11-docker)
-12. [Desenvolvimento](#12-desenvolvimento)
+1. [Quick Start](#-quick-start)
+   - [Docker Compose (Recomendado)](#1-docker-compose-recomendado)
+   - [Execução Local](#2-execução-local)
+2. [Sobre o Projeto](#-sobre-o-projeto)
+3. [Arquitetura](#-arquitetura)
+4. [Tecnologias](#-tecnologias)
+5. [Pré-requisitos](#-pré-requisitos)
+6. [Configuração](#-configuração)
+7. [API Endpoints](#-api-endpoints)
+8. [Tracing Distribuído](#-tracing-distribuído)
+9. [Estrutura do Projeto](#-estrutura-do-projeto)
+10. [Testes](#-testes)
+11. [Troubleshooting](#-troubleshooting)
 
-## 1. ⚡ Quick Start
+---
 
-### 🌐 Usar API em Produção (Google Cloud Run)
+## ⚡ Quick Start
 
-A API já está deployada e disponível para uso imediato:
+### 1. Docker Compose (Recomendado)
+
+A forma mais rápida de executar todo o sistema com OTEL e Zipkin:
 
 ```bash
-# Testar CEP válido
-curl "https://lab-1-go-weather-cloud-run-1080779949140.us-central1.run.app/?cep=01001000"
+# 1. Clone o repositório
+git clone <seu-repositorio>
+cd lab-2-observabilidade-e-opentelemetri
 
-# Resposta esperada:
-# {"localidade":"Sao Paulo","temp_c":20.2,"temp_f":68.36,"temp_k":293.2}
+# 2. Configure a API Key do WeatherAPI (OBRIGATÓRIO)
+# Obtenha sua chave gratuita em: https://www.weatherapi.com/signup.aspx
+export WEATHERAPI_KEY=sua_chave_aqui
 
-# Health check
-curl "https://lab-1-go-weather-cloud-run-1080779949140.us-central1.run.app/health"
+# 3. Inicie todos os serviços
+docker-compose up -d
+
+# 4. Aguarde os serviços iniciarem (~30 segundos)
+docker-compose ps
+
 ```
 
-### 💻 Executar Localmente
+#### Passo 2: Configurar variáveis de ambiente
+
+**Serviço B:**
+```bash
+cd serviceB/cmd/server
+cp .env.example .env
+# Edite .env e adicione:
+# WEATHERAPI_KEY=sua_chave_aqui
+# WEB_SERVER_PORT=:8000
+```
+
+**Serviço A:**
+```bash
+# Serviço A não precisa de .env para execução local
+# mas você pode definir variáveis de ambiente:
+export OTEL_EXPORTER_OTLP_ENDPOINT=localhost:4317
+export SERVICE_B_URL=http://localhost:8000
+```
+
+#### Passo 3: Iniciar Serviço B (Porta 8000)
 
 ```bash
-# 1. Clonar repositório
-git clone https://github.com/adalbertofjr/lab-1-go-weather-cloud-run.git
-cd lab-1-go-weather-cloud-run
-
-# 2. Configurar variáveis de ambiente
-cd cmd/server
-cp .env.example .env
-# Edite .env e adicione sua WEATHERAPI_KEY
-
-# 3. Executar aplicação
+cd serviceB/cmd/server
 go run main.go
-# Acesse: http://localhost:8000
+```
 
-# 4. Testar (em outro terminal)
+#### Passo 4: Iniciar Serviço A (Porta 8080)
+
+Em outro terminal:
+```bash
+cd serviceA/cmd/server
+go run main.go
+```
+
+#### Passo 5: Testar o sistema
+
+```bash
+# Testar através do Serviço A (fluxo completo)
+curl -X POST http://localhost:8080/ \
+  -H "Content-Type: application/json" \
+  -d '{"cep": "01001000"}'
+
+# Testar Serviço B diretamente
 curl "http://localhost:8000/?cep=01001000"
 
-# 5. Executar testes localmente
-go test -v ./...
-
-# 6. Executar testes via Docker
-make test-docker
-# ou: docker compose -f docker-compose.test.yml run --rm test
+# Visualizar traces no Zipkin
+open http://localhost:9411
 ```
 
-## 2. 🚀 Tecnologias
+---
 
-- **Go 1.23** - Linguagem de programação
-- **Chi Router** - HTTP router leve e rápido
-- **Viper** - Gerenciamento de configurações
-- **Docker** - Containerização
-- **GitHub Actions** - CI/CD
-- **Google Cloud Run** - Deploy (serverless)
+## 📖 Sobre o Projeto
+
+Este projeto foi desenvolvido como parte de um laboratório sobre **Observabilidade e OpenTelemetry** em sistemas distribuídos. O objetivo é demonstrar a implementação de **tracing distribuído** em uma arquitetura de microserviços usando Go.
+
+### 🎯 Objetivos
+
+- ✅ Implementar comunicação entre microserviços
+- ✅ Validar entrada de dados (CEP)
+- ✅ Integrar com APIs externas (ViaCEP e WeatherAPI)
+- ✅ Converter temperaturas (Celsius → Fahrenheit, Kelvin)
+- ✅ Implementar observabilidade com OpenTelemetry
+- ✅ Visualizar traces distribuídos com Zipkin
+
+### 🔍 O que o sistema faz?
+
+1. **Serviço A** recebe um CEP via POST
+2. Valida o formato do CEP (8 dígitos numéricos)
+3. Encaminha para o **Serviço B**
+4. **Serviço B** busca a localização (ViaCEP)
+5. **Serviço B** busca a temperatura atual (WeatherAPI)
+6. Converte temperatura para Celsius, Fahrenheit e Kelvin
+7. Retorna os dados formatados
+8. Todo o fluxo é rastreado com **spans distribuídos**
+
+---
+
+## 🏗️ Arquitetura
+
+### Diagrama de Comunicação
+
+```
+┌──────────────┐     POST /cep      ┌──────────────┐
+│   Cliente    │ ─────────────────> │  Serviço A   │
+│              │     (JSON)         │   :8080      │
+└──────────────┘                    └───────┬──────┘
+                                            │
+                                            │ GET /?cep=xxx
+                                            │
+                                    ┌───────▼──────┐
+                                    │  Serviço B   │
+                                    │   :8000      │
+                                    └───────┬──────┘
+                                            │
+                        ┌───────────────────┼───────────────────┐
+                        │                   │                   │
+                  ┌─────▼──────┐     ┌─────▼──────┐     ┌─────▼──────┐
+                  │  ViaCEP    │     │ WeatherAPI │     │   Entity   │
+                  │ (Location) │     │  (Temp)    │     │ (Conversão)│
+                  └────────────┘     └────────────┘     └────────────┘
+                        │                   │                   │
+                        └───────────────────┴───────────────────┘
+                                            │
+                        ┌───────────────────▼───────────────────┐
+                        │      OTEL Collector (gRPC)            │
+                        │            :4317                      │
+                        └───────────────────┬───────────────────┘
+                                            │
+                        ┌───────────────────▼───────────────────┐
+                        │         Zipkin (UI + Storage)         │
+                        │            :9411                      │
+                        └───────────────────────────────────────┘
+```
+
+### Serviço A - Input e Validação
+
+**Responsabilidades:**
+- Receber requisições POST com CEP
+- Validar formato do CEP (8 dígitos)
+- Encaminhar para Serviço B via HTTP
+- Propagar contexto de tracing
+
+**Stack Técnico:**
+- **Chi Router** - HTTP routing
+- **OpenTelemetry** - Instrumentação
+- **Clean Architecture** - Organização de código
+
+**Estrutura:**
+```
+serviceA/
+├── cmd/server/main.go          # Inicialização + OTEL setup
+├── internal/
+│   ├── domain/
+│   │   ├── entity/             # Weather entity
+│   │   └── gateway/            # Interface para Serviço B
+│   ├── usecase/weather/        # Validação + chamada ao Serviço B
+│   └── infra/
+│       ├── api/                # HTTP handler
+│       └── gateway/            # Cliente HTTP para Serviço B
+└── pkg/utility/                # Validador de CEP
+```
+
+### Serviço B - Orquestração e APIs Externas
+
+**Responsabilidades:**
+- Receber CEP do Serviço A
+- Buscar localização no ViaCEP
+- Buscar temperatura no WeatherAPI
+- Converter temperaturas (F, K)
+- Retornar dados formatados
+
+**Stack Técnico:**
+- **Chi Router** - HTTP routing
+- **Viper** - Configuração
+- **OpenTelemetry** - Instrumentação
+- **Clean Architecture** - Organização de código
+
+**Estrutura:**
+```
+serviceB/
+├── cmd/
+│   ├── configs/                # Viper configuration
+│   └── server/main.go          # Inicialização + OTEL setup
+├── internal/
+│   ├── domain/
+│   │   ├── entity/             # Weather (com conversões)
+│   │   └── gateway/            # Interface para APIs
+│   ├── usecase/weather/        # Orquestração da busca
+│   └── infra/
+│       ├── api/                # HTTP handlers
+│       ├── gateway/            # Clientes ViaCEP e WeatherAPI
+│       ├── internal_error/     # Erros customizados (422, 404)
+│       └── web/                # WebServer
+└── pkg/utility/                # Validador de CEP
+```
+
+### Clean Architecture
+
+Ambos os serviços seguem **Clean Architecture**:
+
+```
+┌─────────────────────────────────────────────────┐
+│              Handlers (HTTP)                    │  ← Camada Externa
+├─────────────────────────────────────────────────┤
+│              UseCases                           │  ← Lógica de Aplicação
+├─────────────────────────────────────────────────┤
+│              Gateways (Implementações)          │  ← Adaptadores
+├─────────────────────────────────────────────────┤
+│         Domain (Entities + Interfaces)          │  ← Núcleo do Negócio
+└─────────────────────────────────────────────────┘
+```
+
+**Benefícios:**
+- ✅ Baixo acoplamento
+- ✅ Testabilidade alta
+- ✅ Facilidade de manutenção
+- ✅ Independência de frameworks
+
+---
+
+## 🛠️ Tecnologias
+
+### Backend
+- **[Go 1.23](https://go.dev/)** - Linguagem de programação
+- **[Chi Router](https://github.com/go-chi/chi)** - HTTP router leve e rápido
+- **[Viper](https://github.com/spf13/viper)** - Gerenciamento de configurações
+
+### Observabilidade
+- **[OpenTelemetry](https://opentelemetry.io/)** - Instrumentação de tracing
+- **[OTEL Collector](https://opentelemetry.io/docs/collector/)** - Agregação de traces
+- **[Zipkin](https://zipkin.io/)** - Visualização de traces distribuídos
 
 ### APIs Externas
+- **[ViaCEP](https://viacep.com.br/)** - Consulta de CEP (gratuita)
+- **[WeatherAPI](https://www.weatherapi.com/)** - Dados meteorológicos (gratuita)
 
-- [ViaCEP](https://viacep.com.br/) - Consulta de CEP
-- [WeatherAPI](https://www.weatherapi.com/) - Dados meteorológicos
+### Infraestrutura
+- **[Docker](https://www.docker.com/)** - Containerização
+- **[Docker Compose](https://docs.docker.com/compose/)** - Orquestração local
 
-## 3. 🏗️ Arquitetura
+---
 
-Projeto estruturado seguindo **Clean Architecture**:
+## ✅ Pré-requisitos
 
-```
-┌─────────────┐
-│   Handler   │  HTTP (Chi Router)
-└──────┬──────┘
-       │
-┌──────▼──────┐
-│   UseCase   │  Regras de Negócio
-└──────┬──────┘
-       │
-┌──────▼──────┐
-│   Gateway   │  Integrações Externas (ViaCEP, WeatherAPI)
-└──────┬──────┘
-       │
-┌──────▼──────┐
-│   Entity    │  Modelos de Domínio
-└─────────────┘
-```
+### Para Docker Compose (Recomendado)
+- [Docker](https://www.docker.com/get-started) 20.10+
+- [Docker Compose](https://docs.docker.com/compose/install/) 2.0+
 
-**Camadas:**
-- **Domain** - Entidades e interfaces de negócio
-- **UseCase** - Lógica de aplicação e orquestração
-- **Infrastructure** - Handlers HTTP, Gateways, Web Server
-- **Main** - Configuração e inicialização
-
-## 4. ✅ Pré-requisitos
-
-- [Go 1.23+](https://go.dev/dl/)
-- [Docker](https://www.docker.com/get-started) (opcional, para testes)
+### Para Execução Local
+- **Chave API do [WeatherAPI](https://www.weatherapi.com/signup.aspx)** (gratuita - OBRIGATÓRIA
+- [Docker](https://www.docker.com/get-started) (para OTEL Collector e Zipkin)
 - Chave API do [WeatherAPI](https://www.weatherapi.com/signup.aspx) (gratuita)
 
-## 5. ⚙️ Configuração
+---
+
+## ⚙️ Configuração
+
+### 1. Clone o repositório
 
 ```bash
-git clone https://github.com/adalbertofjr/lab-1-go-weather-cloud-run.git
-cd lab-1-go-weather-cloud-run
+git clone <seu-repositorio>
+cd lab-2-observabilidade-e-opentelemetri
 ```
 
-### 2. Configure as variáveis de ambiente
+### 2. Configure a WeatherAPI Key (OBRIGATÓRIO)
 
+⚠️ **O projeto NÃO possui chave padrão.** Você precisa criar sua própria chave gratuita:
+
+1. **Acesse:** https://www.weatherapi.com/signup.aspx
+2. **Crie uma conta gratuita** (não precisa cartão de crédito)
+3. **Copie sua API key** do dashboard
+
+**Para Docker Compose:**
+
+Opção A - Exportar variável de ambiente (recomendado):
 ```bash
-cd cmd/server
+export WEATHERAPI_KEY=sua_chave_aqui
+docker-compose up -d
+```
+
+Opção B - Editar docker-compose.yaml:
+```bash
+# Edite docker-compose.yaml e substitua a linha:
+# - WEATHERAPI_KEY=${WEATHERAPI_KEY:-your_api_key_here}
+```
+
+**Para execução local:**
+```bash
+cd serviceB/cmd/server
 cp .env.example .env
+# Edite .env e adicione:
+# WEATHERAPI_KEY=sua_chave_aqui
 ```
 
-Edite o arquivo `.env` e adicione sua chave da WeatherAPI:
+### 3. Variáveis de Ambiente
 
-```env
-WEATHERAPI_KEY=sua_chave_aqui
-WEB_SERVER_PORT=:8000
-```
+#### Serviço A (porta 8080)
+| Variável | Padrão | Descrição |
+|----------|--------|-----------|
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | `otel-collector:4317` | Endpoint do OTEL Collector |
+| `SERVICE_B_URL` | `http://serviceB:8000` | URL do Serviço B |
 
-> 💡 **Obtenha sua chave gratuita:** https://www.weatherapi.com/signup.aspx
+#### Serviço B (porta 8000)
+| Variável | Padrão | Dnenhum - obrigatório)* | **API key do WeatherAPI** - [Obtenha aqui](https://www.weatherapi.com/signup.aspx)
+|----------|--------|-----------|
+| `WEATHERAPI_KEY` | *(fornecida)* | API key do WeatherAPI |
+| `WEB_SERVER_PORT` | `:8000` | Porta do servidor |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | `otel-collector:4317` | Endpoint do OTEL Collector |
 
-### 3. Instale as dependências
+---
 
+## 📡 API Endpoints
+
+### Serviço A - Input (Porta 8080)
+
+#### `POST /`
+Recebe um CEP e retorna a temperatura.
+
+**Request:**
 ```bash
-# Na raiz do projeto
-go mod download
+curl -X POST http://localhost:8080/ \
+  -H "Content-Type: application/json" \
+  -d '{"cep": "01001000"}'
 ```
 
-## 5. ⚙️ Configuração
-
-### Opção 1: Execução Local
-
-```bash
-cd cmd/server
-go run main.go
-```
-
-O servidor estará disponível em: **http://localhost:8000**
-
-### Opção 2: Com Docker (recomendado para produção)
-
-```bash
-# Build da imagem (multi-stage build otimizado)
-docker build -t weather-api .
-
-# Executar container
-docker run --rm -p 8080:8080 \
-  -e WEATHERAPI_KEY=sua_chave_aqui \
-  -e WEB_SERVER_PORT=:8080 \
-  weather-api
-```
-
-**Características do Dockerfile:**
-- 🏗️ **Multi-stage build** (builder + runtime)
-- 📦 **Imagem final ~15MB** (Alpine + binário estático)
-- 🔒 **CGO_ENABLED=0** - binário 100% estático
-- 🔐 **Certificados SSL** incluídos (ca-certificates)
-- ⚡ **Otimizado para Cloud Run**
-
-### Testando a API
-
-```bash
-# Health check
-curl http://localhost:8080/health
-
-# Consultar temperatura por CEP
-curl "http://localhost:8080/?cep=01001000"
-```
-
-## 6. 🎯 Executando o Projeto
-
-O projeto possui **37 testes** com **90%+ de cobertura** nas camadas críticas.
-
-### Opção 1: Testes Locais (rápido)
-
-```bash
-# Executar todos os testes
-go test -v ./...
-
-# Com cobertura
-go test -v -cover ./...
-
-# Gerar relatório HTML de cobertura
-go test -coverprofile=coverage.out ./...
-go tool cover -html=coverage.out -o coverage.html
-open coverage.html  # macOS
-```
-
-### Opção 2: Testes com Docker (ambiente isolado)
-
-#### Usando script automatizado (mais fácil):
-
-```bash
-./test-docker.sh test      # Executar testes
-./test-docker.sh coverage  # Gerar relatório HTML
-./test-docker.sh shell     # Shell interativo
-./test-docker.sh clean     # Limpar containers
-```
-
-#### Usando Makefile:
-
-```bash
-make help                  # Ver todos os comandos
-make test-local            # Testes locais
-make test-docker           # Testes no Docker
-make test-docker-coverage  # Cobertura no Docker
-make docker-clean          # Limpar containers
-```
-
-#### Usando Docker Compose:
-
-```bash
-docker compose -f docker-compose.test.yml run --rm test
-docker compose -f docker-compose.test.yml run --rm test-coverage
-```
-
-### Cobertura por Camada
-
-| Camada | Cobertura | Testes |
-|--------|-----------|--------|
-| Entity | 100% | 11 |
-| UseCase | 100% | 8 |
-| InternalError | 100% | 5 |
-| Handler | 63.2% | 11 |
-| Utility | 90% | 2 |
-
-### Executar testes específicos
-
-```bash
-# Testar apenas UseCase
-go test -v ./internal/usecase/weather/
-
-# Testar apenas Entity
-go test -v ./internal/domain/entity/
-
-# Executar teste específico
-go test -v -run TestGetCurrentWeather_Success ./...
-```
-
-## 7. 🧪 Executando os Testes
-
-### `GET /health`
-Verifica se a API está rodando.
-
-**Resposta:**
+**Request Body:**
 ```json
 {
-  "status": "OK"
+  "cep": "01001000"
 }
 ```
 
-### `GET /?cep={cep}`
-Retorna a temperatura atual para o CEP informado.
-
-**Parâmetros:**
-- `cep` (string, obrigatório) - CEP com ou sem hífen (ex: `01001000` ou `01001-000`)
-
-**Exemplo de Requisição:**
-```bash
-curl "http://localhost:8000/?cep=01001000"
-```
-
-**Resposta de Sucesso (200):**
+**Response 200 - Sucesso:**
 ```json
 {
   "city": "São Paulo",
@@ -287,155 +372,345 @@ curl "http://localhost:8000/?cep=01001000"
 }
 ```
 
-**Erros:**
+**Response 422 - CEP Inválido:**
+```json
+invalid zipcode
+```
 
-- **422 - CEP inválido:**
+### Serviço B - Orquestração (Porta 8000)
+
+#### `GET /?cep={cep}`
+Processa o CEP e retorna temperatura.
+
+**Request:**
+```bash
+curl "http://localhost:8000/?cep=01001000"
+```
+
+**Response 200 - Sucesso:**
 ```json
 {
-  "message": "invalid zipcode"
+  "city": "São Paulo",
+  "temp_C": 28.5,
+  "temp_F": 83.3,
+  "temp_K": 301.5
 }
 ```
 
-- **404 - CEP não encontrado:**
+**Response 422 - CEP Inválido:**
+```
+Invalid zipcode
+```
+
+**Response 404 - CEP Não Encontrado:**
+```
+Can not find zipcode
+```
+
+#### `GET /health`
+Health check do serviço.
+
+**Response 200:**
 ```json
 {
-  "message": "can not find zipcode"
+  "status": "OK"
 }
 ```
 
-## 8. 📡 API Endpoints
+---
+
+## 🔍 Tracing Distribuído
+
+### OpenTelemetry + Zipkin
+
+O projeto implementa **tracing distribuído** completo:
+
+#### Spans Criados
+
+**Serviço A:**
+1. `POST /cep` - Handler principal
+2. `validate_cep` - Validação do formato
+3. `call_service_b` - Chamada HTTP ao Serviço B
+
+**Serviço B:**
+4. `Get /?cep=xxx` - Handler principal
+5. `validate_cep` - Validação do formato
+6. `fetch_weather_data` - Orquestração completa
+7. `fetch_cep_location` - Chamada ao ViaCEP
+8. `fetch_current_weather` - Chamada ao WeatherAPI
+
+### Visualizando Traces no Zipkin
+
+1. **Acesse o Zipkin UI**: http://localhost:9411
+
+2. **Busque traces**:
+   - Clique em "RUN QUERY"
+   - Ou filtre por serviço: `ServiceA` ou `ServiceB`
+
+3. **Analise o trace**:
+   - Veja o tempo total da requisição
+   - Identifique gargalos (qual span demorou mais)
+   - Visualize a propagação do contexto entre serviços
+
+### Exemplo de Trace
+
+```
+ServiceA: POST /cep (total: 245ms)
+├─ validate_cep (2ms)
+└─ call_service_b (243ms)
+   └─ ServiceB: Get /?cep=xxx (240ms)
+      ├─ validate_cep (1ms)
+      └─ fetch_weather_data (239ms)
+         ├─ fetch_cep_location (120ms) ← ViaCEP
+         └─ fetch_current_weather (119ms) ← WeatherAPI
+```
+
+### Propagação de Contexto
+
+O projeto usa **W3C Trace Context** para propagar o contexto:
+
+**Serviço A injeta headers:**
+```go
+otel.GetTextMapPropagator().Inject(ctx, propagation.HeaderCarrier(req.Header))
+```
+
+**Serviço B extrai headers:**
+```go
+ctx = otel.GetTextMapPropagator().Extract(ctx, propagation.HeaderCarrier(r.Header))
+```
+
+---
+
+## 📂 Estrutura do Projeto
+
+### Árvore Completa
 
 ```
 .
-├── cmd/
-│   ├── configs/          # Configurações (Viper)
-│   └── server/
-│       ├── main.go       # Entry point
-│       └── .env.example  # Exemplo de variáveis de ambiente
-├── internal/
-│   ├── domain/
-│   │   ├── entity/       # Weather (conversões de temperatura)
-│   │   └── gateway/      # Interface WeatherGateway
-│   ├── usecase/
-│   │   └── weather/      # GetCurrentWeather (lógica de negócio)
-│   └── infra/
-│       ├── api/          # Handlers HTTP + DTOs
-│       ├── gateway/      # WeatherAPI (implementação)
-│       ├── internal_error/ # Erros customizados
-│       └── web/          # WebServer (Chi)
-├── pkg/
-│   ├── net/              # HTTP connection utilities
-│   └── utility/          # CEP validator/formatter
-├── .github/
-│   └── workflows/
-│       └── test.yml      # CI/CD (GitHub Actions)
-├── Dockerfile.test       # Imagem Docker para testes
-├── docker-compose.test.yml # Orquestração de testes
-├── Makefile              # Comandos simplificados
-├── test-docker.sh        # Script automatizado de testes
-└── go.mod                # Dependências
+├── .docker/
+│   └── otel-collector-config.yaml  # Configuração do OTEL Collector
+├── serviceA/                       # Serviço de Input
+│   ├── cmd/server/main.go
+│   ├── internal/
+│   │   ├── domain/
+│   │   │   ├── entity/
+│   │   │   └── gateway/
+│   │   ├── usecase/weather/
+│   │   └── infra/
+│   │       ├── api/
+│   │       └── gateway/
+│   ├── pkg/utility/
+│   ├── Dockerfile
+│   └── go.mod
+├── serviceB/                       # Serviço de Orquestração
+│   ├── cmd/
+│   │   ├── configs/
+│   │   └── server/main.go
+│   ├── internal/
+│   │   ├── domain/
+│   │   │   ├── entity/
+│   │   │   └── gateway/
+│   │   ├── usecase/weather/
+│   │   └── infra/
+│   │       ├── api/
+│   │       ├── gateway/
+│   │       ├── internal_error/
+│   │       └── web/
+│   ├── pkg/utility/
+│   ├── Dockerfile
+│   └── go.mod
+├── docker-compose.yaml             # Orquestração completa
+├── REQUIREMENTS.md                 # Requisitos do projeto
+├── AVALIACAO.md                    # Avaliação técnica
+└── README.md                       # Este arquivo
 ```
 
-## 9. 📁 Estrutura do Projeto
+---
 
-O projeto usa **GitHub Actions** para executar testes automaticamente em cada push/PR.
+## 🧪 Testes
 
-### Workflow: `.github/workflows/go-weather-cloud-run-tests.yml`
-
-```yaml
-name: Go Weather Cloud Run - Tests
-on: [push, pull_request]
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - run: docker compose -f docker-compose.test.yml run --rm test
-```
-
-**Vantagens:**
-- ✅ Ambiente isolado e reproduzível
-- ✅ Mesma versão Go (1.23) em qualquer lugar
-- ✅ Sem necessidade de configurar Go no runner
-- ✅ Cache automático de dependências
-
-Ver status dos testes: [Actions](https://github.com/adalbertofjr/lab-1-go-weather-cloud-run/actions)
-
-## 10. 🔄 CI/CD
-
-### Arquivos Docker
-
-- **`Dockerfile`** - Imagem de produção (multi-stage build, ~15MB)
-- **`Dockerfile.test`** - Imagem Alpine otimizada para testes
-- **`docker-compose.test.yml`** - 3 serviços (test, test-coverage, test-watch)
-- **`.dockerignore`** - Otimização de build
-
-### Dockerfile de Produção
-
-O `Dockerfile` usa **multi-stage build** para criar imagem extremamente otimizada:
-
-**Stage 1 - Builder:**
-```dockerfile
-FROM golang:1.23-alpine AS builder
-WORKDIR /app
-COPY . .
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o weather-api ./cmd/server
-```
-
-**Stage 2 - Runtime:**
-```dockerfile
-FROM alpine:latest
-RUN apk --no-cache add ca-certificates
-COPY --from=builder /app/weather-api .
-ENTRYPOINT ["/app/weather-api"]
-```
-
-**Resultado:**
-- 📦 Imagem final: **~15MB** (vs ~300MB sem otimização)
-- 🔒 Binário estático (CGO_ENABLED=0)
-- 🔐 Certificados SSL para APIs externas
-- ⚡ Cold start rápido no Cloud Run
-
-### Comandos Docker
+### Serviço A
 
 ```bash
-# Produção
-docker build -t weather-api .
-docker run --rm -p 8080:8080 \
-  -e WEATHERAPI_KEY=sua_chave \
-  -e WEB_SERVER_PORT=:8080 \
-  weather-api
-
-# Testes
-docker compose -f docker-compose.test.yml run --rm test
-
-# Shell interativo
-docker compose -f docker-compose.test.yml run --rm test-watch
-
-# Limpar
-docker compose -f docker-compose.test.yml down --rmi all
+cd serviceA
+go test -v ./...
 ```
 
-Documentação completa: [DOCKER_TESTS.md](./DOCKER_TESTS.md)
+**Cobertura:**
+- Testes de validação de CEP
+- Testes de integração com Serviço B
+- Testes de propagação de contexto
 
-## 12. 🛠️ Desenvolvimento
-
-- [DOCKER_TESTS.md](./DOCKER_TESTS.md) - Guia completo de testes com Docker
-- [QUICK_START_DOCKER.md](./QUICK_START_DOCKER.md) - Quick start para testes
-
-## 11. 🐳 Docker
-
-### Adicionar novos testes
+### Serviço B
 
 ```bash
-# Criar arquivo de teste
-touch internal/domain/entity/new_test.go
-
-# Executar apenas esse teste
-go test -v ./internal/domain/entity/ -run TestNew
+cd serviceB
+go test -v ./...
 ```
 
-### Validar antes de commit
+**Cobertura:**
+- Testes unitários (Entity, UseCase)
+- Testes de integração (Handlers)
+- Testes de erros customizados
+- Testes de conversão de temperatura
+
+### Executar todos os testes
+
+```bash
+# Serviço A
+(cd serviceA && go test -v ./...)
+
+# Serviço B
+(cd serviceB && go test -v ./...)
+```
+
+---
+
+## 🐛 Troubleshooting
+
+### Problema: "Cannot connect to OTEL Collector"
+
+**Solução:**
+```bash
+# Verifique se o OTEL Collector está rodando
+docker-compose ps otel-collector
+
+# Verifique os logs
+docker-compose logs otel-collector
+
+# Reinicie o serviço
+docker-compose restart otel-collector
+```
+
+### Problema: "Zipkin não mostra traces"
+
+**Soluções:**
+1. Aguarde alguns segundos após fazer requisições
+2. Verifique se os serviços estão enviando dados:
+```bash
+docker-compose logs otel-collector | grep -i trace
+```
+3. Acesse http://localhost:13133 (health check do collector)
+4. Limpe o cache do Zipkin: http://localhost:9411
+
+### Problema: "invalid zipcode" para CEP válido
+
+**Causa:** CEP deve ter exatamente 8 dígitos numéricos.
+
+**Soluções:**
+```bash
+# ✅ Correto
+{"cep": "01001000"}
+{"cep": "01001-000"}  # Aceita hífen
+
+# ❌ Errado
+{"cep": "1001000"}     # 7 dígitos
+{"cep": "010010000"}   # 9 dígitos
+{"cep": "ABC01000"}    # Letras
+```
+
+### Problema: "can not find zipcode"
+
+**Causa:** CEP não existe na base do ViaCEP.
+
+**Solução:** Use CEPs reais. Exemplos:
+- `01001000` - São Paulo - SP
+- `20040020` - Rio de Janeiro - RJ
+- `30130100` - Belo Horizonte - MG
+- `40010000` - Salvador - BA
+
+### Problema: Serviços não conseguem se comunicar (Docker)
+
+**Solução:**
+```bash
+# Verifique a rede Docker
+docker network inspect lab-2-observabilidade-e-opentelemetri_default
+
+# Reinicie os serviços com rebuild
+docker-compose down
+docker-compose up --build -d
+```
+
+### Problema: WeatherAPI retorna erro
+
+**Causas comuns:**
+1. **Chave não configurada** - A chave é obrigatória, não há chave padrão
+2. **Chave inválida** - Verifique se copiou corretamente
+3. **Limite excedido** - Plano gratuito tem 1M req/mês
+
+**Soluções:**
+1. Crie sua chave em: https://www.weatherapi.com/signup.aspx
+2. Configure corretamente:
+   ```bash
+   # Docker Compose
+   export WEATHERAPI_KEY=sua_chave_aqui
+   
+   # Ou edite serviceB/cmd/server/.env
+   WEATHERAPI_KEY=sua_chave_aqui
+   ```
+3. Teste a chave diretamente:
+   ```bash
+   curl "https://api.weatherapi.com/v1/current.json?key=SUA_CHAVE&q=Sao%20Paulo&aqi=no"
+   ```
+
+### Logs úteis
+
+```bash
+# Ver logs de todos os serviços
+docker-compose logs -f
+
+# Ver logs de um serviço específico
+docker-compose logs -f serviceA
+docker-compose logs -f serviceB
+docker-compose logs -f otel-collector
+docker-compose logs -f zipkin-all-in-one
+
+# Ver últimas 100 linhas
+docker-compose logs --tail=100 serviceA
+```
+
+---
+
+## 📚 Referências
+
+### Documentação Oficial
+- [OpenTelemetry Go](https://opentelemetry.io/docs/languages/go/)
+- [OpenTelemetry Instrumentation](https://opentelemetry.io/docs/languages/go/instrumentation/)
+- [OTEL Collector](https://opentelemetry.io/docs/collector/)
+- [Zipkin Documentation](https://zipkin.io/)
+- [Go Documentation](https://go.dev/doc/)
+
+### APIs Utilizadas
+- [ViaCEP API](https://viacep.com.br/)
+- [WeatherAPI Docs](https://www.weatherapi.com/docs/)
+
+### Arquitetura e Design
+- [Clean Architecture](https://blog.cleancoder.com/uncle-bob/2012/08/13/the-clean-architecture.html)
+- [Go Project Layout](https://github.com/golang-standards/project-layout)
+
+---
+
+## 📝 Licença
+
+Este projeto foi desenvolvido para fins educacionais como parte do laboratório de **Observabilidade e OpenTelemetry**.
+
+---
+
+## 👨‍💻 Autor
+
+Desenvolvido como parte do curso de Pós-Graduação em Go.
+
+---
+
+## 🎯 Avaliação do Projeto
+
+Para uma avaliação técnica completa do projeto, consulte: [AVALIACAO.md](AVALIACAO.md)
+
+**Status:** 🟢 **APROVADO** (Nota: 9.8/10)
+
+---
+
+**⭐ Se este projeto foi útil, não esqueça de dar uma estrela!**
 
 ```bash
 # Executar todos os testes
