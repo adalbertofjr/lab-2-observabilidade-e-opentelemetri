@@ -35,12 +35,14 @@ A forma mais rápida de executar todo o sistema com OTEL e Zipkin:
 
 ```bash
 # 1. Clone o repositório
-git clone <seu-repositorio>
+git clone https://github.com/adalbertofjr/lab-2-observabilidade-e-opentelemetri.git
 cd lab-2-observabilidade-e-opentelemetri
 
 # 2. Configure a API Key do WeatherAPI (OBRIGATÓRIO)
 # Obtenha sua chave gratuita em: https://www.weatherapi.com/signup.aspx
-export WEATHERAPI_KEY=sua_chave_aqui
+# Edite o docker-compose.yaml e substitua 'your_api_key_here' pela sua chave:
+nano docker-compose.yaml  # ou vim, code, etc.
+# Linha 36: WEATHERAPI_KEY=sua_chave_aqui
 
 # 3. Inicie todos os serviços
 docker-compose up -d
@@ -48,54 +50,114 @@ docker-compose up -d
 # 4. Aguarde os serviços iniciarem (~30 segundos)
 docker-compose ps
 
-```
-
-#### Passo 2: Configurar variáveis de ambiente
-
-**Serviço B:**
-```bash
-cd serviceB/cmd/server
-cp .env.example .env
-# Edite .env e adicione:
-# WEATHERAPI_KEY=sua_chave_aqui
-# WEB_SERVER_PORT=:8000
-```
-
-**Serviço A:**
-```bash
-# Serviço A não precisa de .env para execução local
-# mas você pode definir variáveis de ambiente:
-export OTEL_EXPORTER_OTLP_ENDPOINT=localhost:4317
-export SERVICE_B_URL=http://localhost:8000
-```
-
-#### Passo 3: Iniciar Serviço B (Porta 8000)
-
-```bash
-cd serviceB/cmd/server
-go run main.go
-```
-
-#### Passo 4: Iniciar Serviço A (Porta 8080)
-
-Em outro terminal:
-```bash
-cd serviceA/cmd/server
-go run main.go
-```
-
-#### Passo 5: Testar o sistema
-
-```bash
-# Testar através do Serviço A (fluxo completo)
+# 5. Teste o sistema
 curl -X POST http://localhost:8080/ \
   -H "Content-Type: application/json" \
   -d '{"cep": "01001000"}'
 
-# Testar Serviço B diretamente
+# 6. Acesse o Zipkin para visualizar os traces
+open http://localhost:9411
+```
+
+**Serviços disponíveis:**
+- 🔵 **Serviço A** (Input): http://localhost:8080
+- 🟢 **Serviço B** (Orquestração): http://localhost:8000
+- 🟠 **Zipkin UI**: http://localhost:9411
+- 🔴 **OTEL Collector**: http://localhost:4317 (gRPC)
+
+---
+
+### 2. Execução Local
+
+Para desenvolvimento local, execute cada serviço manualmente:
+
+#### Passo 1: Clone o repositório
+
+```bash
+git clone https://github.com/adalbertofjr/lab-2-observabilidade-e-opentelemetri.git
+cd lab-2-observabilidade-e-opentelemetri
+```
+
+#### Passo 2: Inicie a infraestrutura (OTEL Collector e Zipkin)
+
+```bash
+# Na raiz do projeto, inicie apenas Zipkin e OTEL Collector
+docker-compose up zipkin-all-in-one otel-collector -d
+```
+
+#### Passo 3: Configure o Serviço B
+
+```bash
+# Entre no diretório do Serviço B
+cd serviceB/cmd/server
+
+# Crie o arquivo .env a partir do exemplo
+cp .env.example .env
+
+# Edite o arquivo .env
+nano .env  # ou vim, code, etc.
+```
+
+**Adicione sua WeatherAPI Key no arquivo .env:**
+```env
+WEATHERAPI_KEY=sua_chave_aqui_sem_aspas
+WEB_SERVER_PORT=:8000
+OTEL_EXPORTER_OTLP_ENDPOINT=localhost:4317
+```
+
+> 💡 Obtenha sua chave gratuita em: https://www.weatherapi.com/signup.aspx
+
+```bash
+# Baixe as dependências do Go
+go mod download
+```
+
+#### Passo 4: Inicie o Serviço B (Terminal 1)
+
+```bash
+# A partir do diretório serviceB/cmd/server
+go run main.go
+```
+
+O Serviço B estará rodando em: http://localhost:8000
+
+#### Passo 5: Inicie o Serviço A (Terminal 2)
+
+```bash
+# Volte para a raiz do projeto
+cd ../../..
+
+# Entre no diretório do Serviço A
+cd serviceA/cmd/server
+
+# Baixe as dependências do Serviço A
+go mod download
+
+# Execute o serviço (não precisa configurar .env)
+go run main.go
+```
+
+> 💡 **Nota**: O Serviço A já possui valores padrão (`localhost:4317` e `http://localhost:8000`).  
+> Só exporte variáveis se precisar customizar:
+> ```bash
+> export OTEL_EXPORTER_OTLP_ENDPOINT=outro_endpoint:4317
+> export SERVICE_B_URL=http://outro_host:8000
+> ```
+
+O Serviço A estará rodando em: http://localhost:8080
+
+#### Passo 6: Teste o sistema
+
+```bash
+# Teste o fluxo completo através do Serviço A
+curl -X POST http://localhost:8080/ \
+  -H "Content-Type: application/json" \
+  -d '{"cep": "01001000"}'
+
+# Ou teste o Serviço B diretamente
 curl "http://localhost:8000/?cep=01001000"
 
-# Visualizar traces no Zipkin
+# Acesse o Zipkin para visualizar os traces
 open http://localhost:9411
 ```
 
@@ -277,11 +339,17 @@ Ambos os serviços seguem **Clean Architecture**:
 ### Para Docker Compose (Recomendado)
 - [Docker](https://www.docker.com/get-started) 20.10+
 - [Docker Compose](https://docs.docker.com/compose/install/) 2.0+
+- **Chave API do [WeatherAPI](https://www.weatherapi.com/signup.aspx)** (gratuita - OBRIGATÓRIA)
 
 ### Para Execução Local
-- **Chave API do [WeatherAPI](https://www.weatherapi.com/signup.aspx)** (gratuita - OBRIGATÓRIA
+- [Go 1.23+](https://go.dev/dl/)
 - [Docker](https://www.docker.com/get-started) (para OTEL Collector e Zipkin)
-- Chave API do [WeatherAPI](https://www.weatherapi.com/signup.aspx) (gratuita)
+- **Chave API do [WeatherAPI](https://www.weatherapi.com/signup.aspx)** (gratuita - OBRIGATÓRIA)
+
+**Verificar instalação do Go:**
+```bash
+go version  # Deve retornar go1.23 ou superior
+```
 
 ---
 
@@ -290,7 +358,7 @@ Ambos os serviços seguem **Clean Architecture**:
 ### 1. Clone o repositório
 
 ```bash
-git clone <seu-repositorio>
+git clone https://github.com/adalbertofjr/lab-2-observabilidade-e-opentelemetri.git
 cd lab-2-observabilidade-e-opentelemetri
 ```
 
@@ -304,40 +372,69 @@ cd lab-2-observabilidade-e-opentelemetri
 
 **Para Docker Compose:**
 
-Opção A - Exportar variável de ambiente (recomendado):
+**Opção A - Editar docker-compose.yaml** (recomendado - mais confiável):
+```bash
+# Edite o arquivo docker-compose.yaml
+nano docker-compose.yaml  # ou vim, code, etc.
+
+# Encontre a linha 36 e substitua:
+# - WEATHERAPI_KEY=${WEATHERAPI_KEY:-your_api_key_here}
+# Por:
+# - WEATHERAPI_KEY=sua_chave_aqui
+
+# Salve e inicie os serviços
+docker-compose up -d
+```
+
+**Opção B - Exportar variável de ambiente** (pode não funcionar em alguns ambientes):
 ```bash
 export WEATHERAPI_KEY=sua_chave_aqui
 docker-compose up -d
 ```
 
-Opção B - Editar docker-compose.yaml:
-```bash
-# Edite docker-compose.yaml e substitua a linha:
-# - WEATHERAPI_KEY=${WEATHERAPI_KEY:-your_api_key_here}
-```
+> ⚠️ **Importante**: Se usar Opção A, não faça commit do arquivo com a chave. Adicione ao .gitignore ou use git update-index --skip-worktree docker-compose.yaml
 
-**Para execução local:**
+**Para execução local do Serviço B:**
 ```bash
 cd serviceB/cmd/server
 cp .env.example .env
-# Edite .env e adicione:
-# WEATHERAPI_KEY=sua_chave_aqui
+
+# Edite o arquivo .env:
+nano .env  # ou use vim, code, etc.
 ```
+
+**Conteúdo do arquivo .env:**
+```env
+WEATHERAPI_KEY=sua_chave_aqui_sem_aspas
+WEB_SERVER_PORT=:8000
+OTEL_EXPORTER_OTLP_ENDPOINT=localhost:4317
+```
+
+> ✅ **Serviço A**: Não precisa de .env (usa valores padrão hardcoded)  
+> ⚠️ **Serviço B**: Requer .env com WEATHERAPI_KEY obrigatória
 
 ### 3. Variáveis de Ambiente
 
 #### Serviço A (porta 8080)
+
+**Não requer arquivo .env** - todas as variáveis têm valores padrão adequados.
+
 | Variável | Padrão | Descrição |
-|----------|--------|-----------|
-| `OTEL_EXPORTER_OTLP_ENDPOINT` | `otel-collector:4317` | Endpoint do OTEL Collector |
-| `SERVICE_B_URL` | `http://serviceB:8000` | URL do Serviço B |
+|----------|--------|-----------||
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | `localhost:4317` | Endpoint do OTEL Collector |
+| `SERVICE_B_URL` | `http://localhost:8000` | URL do Serviço B |
+
+> 💡 **Dica**: O serviço funciona sem configuração adicional. Só exporte variáveis se precisar alterar os endpoints padrão.
 
 #### Serviço B (porta 8000)
-| Variável | Padrão | Dnenhum - obrigatório)* | **API key do WeatherAPI** - [Obtenha aqui](https://www.weatherapi.com/signup.aspx)
-|----------|--------|-----------|
-| `WEATHERAPI_KEY` | *(fornecida)* | API key do WeatherAPI |
-| `WEB_SERVER_PORT` | `:8000` | Porta do servidor |
-| `OTEL_EXPORTER_OTLP_ENDPOINT` | `otel-collector:4317` | Endpoint do OTEL Collector |
+
+**Requer arquivo .env** com a WeatherAPI Key.
+
+| Variável | Padrão | Descrição |
+|----------|--------|-----------||
+| `WEATHERAPI_KEY` | *(nenhum - obrigatório)* | **API key do WeatherAPI** - [Obtenha aqui](https://www.weatherapi.com/signup.aspx) |
+| `WEB_SERVER_PORT` | `:8000` | Porta do servidor HTTP |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | `otel-collector:4317` (Docker)<br>`localhost:4317` (local) | Endpoint do OTEL Collector |
 
 ---
 
@@ -613,11 +710,12 @@ docker-compose logs otel-collector | grep -i trace
 
 **Causa:** CEP não existe na base do ViaCEP.
 
-**Solução:** Use CEPs reais. Exemplos:
-- `01001000` - São Paulo - SP
-- `20040020` - Rio de Janeiro - RJ
-- `30130100` - Belo Horizonte - MG
-- `40010000` - Salvador - BA
+**Solução:** Use CEPs reais brasileiros. Exemplos:
+- `01001000` - Praça da Sé, São Paulo - SP
+- `20040020` - Centro, Rio de Janeiro - RJ
+- `30130100` - Centro, Belo Horizonte - MG
+- `40010000` - Comércio, Salvador - BA
+- `80010000` - Centro, Curitiba - PR
 
 ### Problema: Serviços não conseguem se comunicar (Docker)
 
@@ -635,22 +733,35 @@ docker-compose up --build -d
 
 **Causas comuns:**
 1. **Chave não configurada** - A chave é obrigatória, não há chave padrão
-2. **Chave inválida** - Verifique se copiou corretamente
-3. **Limite excedido** - Plano gratuito tem 1M req/mês
+2. **Chave inválida** - Verifique se copiou corretamente (sem espaços)
+3. **Limite excedido** - Plano gratuito tem 1M requisições/mês
+4. **Arquivo .env não encontrado** - Certifique-se de criar o .env no ServiceB
 
 **Soluções:**
-1. Crie sua chave em: https://www.weatherapi.com/signup.aspx
-2. Configure corretamente:
+
+1. **Crie sua chave gratuita**: https://www.weatherapi.com/signup.aspx
+
+2. **Para Docker Compose**:
    ```bash
-   # Docker Compose
    export WEATHERAPI_KEY=sua_chave_aqui
-   
-   # Ou edite serviceB/cmd/server/.env
-   WEATHERAPI_KEY=sua_chave_aqui
+   docker-compose up -d
    ```
-3. Teste a chave diretamente:
+
+3. **Para execução local** (apenas ServiceB precisa):
+   ```bash
+   cd serviceB/cmd/server
+   cp .env.example .env
+   # Edite o .env e adicione: WEATHERAPI_KEY=sua_chave_aqui
+   ```
+
+4. **Teste a chave diretamente**:
    ```bash
    curl "https://api.weatherapi.com/v1/current.json?key=SUA_CHAVE&q=Sao%20Paulo&aqi=no"
+   ```
+
+5. **Verifique se a variável foi carregada**:
+   ```bash
+   docker-compose exec serviceB env | grep WEATHERAPI_KEY
    ```
 
 ### Logs úteis
@@ -697,34 +808,5 @@ Este projeto foi desenvolvido para fins educacionais como parte do laboratório 
 ---
 
 ## 👨‍💻 Autor
-
-Desenvolvido como parte do curso de Pós-Graduação em Go.
-
----
-
-## 🎯 Avaliação do Projeto
-
-Para uma avaliação técnica completa do projeto, consulte: [AVALIACAO.md](AVALIACAO.md)
-
-**Status:** 🟢 **APROVADO** (Nota: 9.8/10)
-
----
-
-**⭐ Se este projeto foi útil, não esqueça de dar uma estrela!**
-
-```bash
-# Executar todos os testes
-make test-local
-
-# Verificar cobertura
-make test-coverage
-```
-
-## 📝 Licença
-
-Este projeto é parte de um laboratório de estudos de Pós-Graduação em Go.
-
----
-
 **Autor:** Adalberto F. Jr.  
-**Repositório:** https://github.com/adalbertofjr/lab-1-go-weather-cloud-run
+**Repositório:** https://github.com/adalbertofjr/lab-2-observabilidade-e-opentelemetri
