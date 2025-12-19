@@ -35,8 +35,8 @@ A forma mais rápida de executar todo o sistema com OTEL e Zipkin:
 
 ```bash
 # 1. Clone o repositório
-git clone https://github.com/adalbertofjr/lab-2-observabilidade-e-opentelemetri.git
-cd lab-2-observabilidade-e-opentelemetri
+git clone git@github.com:adalbertofjr/lab-2-observabilidade-e-opentelemetry.git
+cd lab-2-observabilidade-e-opentelemetry
 
 # 2. Configure a API Key do WeatherAPI (OBRIGATÓRIO)
 # Obtenha sua chave gratuita em: https://www.weatherapi.com/signup.aspx
@@ -74,8 +74,8 @@ Para desenvolvimento local, execute cada serviço manualmente:
 #### Passo 1: Clone o repositório
 
 ```bash
-git clone https://github.com/adalbertofjr/lab-2-observabilidade-e-opentelemetri.git
-cd lab-2-observabilidade-e-opentelemetri
+git clone git@github.com:adalbertofjr/lab-2-observabilidade-e-opentelemetry.git
+cd lab-2-observabilidade-e-opentelemetry
 ```
 
 #### Passo 2: Inicie a infraestrutura (OTEL Collector e Zipkin)
@@ -358,8 +358,8 @@ go version  # Deve retornar go1.23 ou superior
 ### 1. Clone o repositório
 
 ```bash
-git clone https://github.com/adalbertofjr/lab-2-observabilidade-e-opentelemetri.git
-cd lab-2-observabilidade-e-opentelemetri
+git clone git@github.com:adalbertofjr/lab-2-observabilidade-e-opentelemetry.git
+cd lab-2-observabilidade-e-opentelemetry
 ```
 
 ### 2. Configure a WeatherAPI Key (OBRIGATÓRIO)
@@ -722,7 +722,7 @@ docker-compose logs otel-collector | grep -i trace
 **Solução:**
 ```bash
 # Verifique a rede Docker
-docker network inspect lab-2-observabilidade-e-opentelemetri_default
+docker network inspect lab-2-observabilidade-e-opentelemetry_default
 
 # Reinicie os serviços com rebuild
 docker-compose down
@@ -809,4 +809,4 @@ Este projeto foi desenvolvido para fins educacionais como parte do laboratório 
 
 ## 👨‍💻 Autor
 **Autor:** Adalberto F. Jr.  
-**Repositório:** https://github.com/adalbertofjr/lab-2-observabilidade-e-opentelemetri
+**Repositório:** https://github.com/adalbertofjr/lab-2-observabilidade-e-opentelemetry
